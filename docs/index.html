@@ -6,7 +6,7 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 600px;
+      max-width: 700px; /* お好みで幅を調整 */
       margin: auto;
       padding: 20px;
       text-align: center;
@@ -14,12 +14,12 @@
     h1 {
       margin-bottom: 20px;
     }
-    /* スキットルボタン（1～12） */
+    /* スキットルボタン(1〜12)の配置 */
     #skittlesContainer {
       display: flex;
       flex-wrap: wrap;
-      justify-content: center;
       gap: 10px;
+      justify-content: center;
       margin-bottom: 20px;
     }
     .skittle {
@@ -36,32 +36,48 @@
     .skittle:hover {
       background-color: #0056b3;
     }
+    /* ボタン類 */
+    #buttonsContainer {
+      margin-bottom: 20px;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+    }
+    #addPlayerButton {
+      background-color: #28a745;
+      color: white;
+    }
+    #addPlayerButton:hover {
+      background-color: #218838;
+    }
+    #resetButton {
+      background-color: #ff3333;
+      color: white;
+    }
+    #resetButton:hover {
+      background-color: #cc0000;
+    }
 
-    /* スコア表示用のテーブル */
+    /* スコア表 */
     table {
-      width: 100%;
-      border-collapse: collapse;
+      width: 100%;               /* 横幅を100% */
+      table-layout: fixed;       /* 列幅を均等に計算 */
+      border-collapse: collapse; /* 枠線を重ねる */
       margin-bottom: 20px;
     }
     th, td {
       border: 1px solid #ddd;
       padding: 8px;
       text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;       /* 折り返しをしない */
     }
     th {
       background-color: #f8f8f8;
-    }
-    /* リセットボタン */
-    #resetButton {
-      background-color: #ff3333;
-      color: #fff;
-      border: none;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    #resetButton:hover {
-      background-color: #cc0000;
     }
   </style>
 </head>
@@ -71,46 +87,35 @@
   <!-- スキットルボタン(1～12) -->
   <div id="skittlesContainer"></div>
 
+  <!-- プレイヤー追加＆リセットボタン -->
+  <div id="buttonsContainer">
+    <button id="addPlayerButton">+ プレイヤー追加</button>
+    <button id="resetButton">リセット</button>
+  </div>
+
   <!-- スコア表 -->
-  <table id="scoreTable">
+  <table>
     <thead>
-      <tr>
-        <th>Throw #</th>
-        <th>プレイヤー1</th>
-        <th>プレイヤー2</th>
-        <th>プレイヤー3</th>
-        <th>プレイヤー4</th>
-      </tr>
+      <tr id="tableHeadRow"></tr>
     </thead>
-    <tbody>
-      <!-- この下に合計・投目の行をJSで埋め込む -->
-    </tbody>
+    <tbody id="tableBody"></tbody>
   </table>
 
-  <!-- リセットボタン -->
-  <button id="resetButton">リセット</button>
-
   <script>
-    // ================================
+    // ===============================
     // データ構造
-    // ================================
-    // プレイヤーは4人固定
+    // ===============================
+    // プレイヤー2名固定スタート
     let players = [
       { name: 'プレイヤー1', throws: [], total: 0 },
-      { name: 'プレイヤー2', throws: [], total: 0 },
-      { name: 'プレイヤー3', throws: [], total: 0 },
-      { name: 'プレイヤー4', throws: [], total: 0 }
+      { name: 'プレイヤー2', throws: [], total: 0 }
     ];
-
-    // 「現在の投げ手」を管理
+    // 投げ順管理
     let turnIndex = 0;
 
-    // 最大何投まで表示するか（ここでは5投まで）
-    const MAX_THROWS = 5;
-
-    // ================================
-    // スキットルボタンを生成
-    // ================================
+    // ===============================
+    // スキットルボタン生成 (1~12)
+    // ===============================
     function createSkittles() {
       const container = document.getElementById('skittlesContainer');
       container.innerHTML = '';
@@ -123,52 +128,85 @@
       }
     }
 
-    // ================================
-    // スコアを追加 → 次のプレイヤーへ
-    // ================================
+    // ===============================
+    // スコアを追加
+    // ===============================
     function addScore(points) {
-      const currentPlayer = players[turnIndex % 4];
+      const currentPlayer = players[turnIndex % players.length];
       currentPlayer.throws.push(points);
       currentPlayer.total += points;
 
-      // 50点超え → 25点リセット
+      // 50点超過→25点、50点ちょうど→勝利
       if (currentPlayer.total > 50) {
         currentPlayer.total = 25;
       }
-      // 50点ピッタリ → 勝利
       if (currentPlayer.total === 50) {
-        alert(`${currentPlayer.name} が勝ちました！`);
+        alert(currentPlayer.name + ' が勝ちました！');
       }
 
       turnIndex++;
-      updateTable();
+      renderTable();
     }
 
-    // ================================
-    // リセットボタン
-    // ================================
+    // ===============================
+    // プレイヤー追加
+    // ===============================
+    function addPlayer() {
+      const newNum = players.length + 1;
+      players.push({
+        name: 'プレイヤー' + newNum,
+        throws: [],
+        total: 0
+      });
+      // turnIndex は動かさない
+      renderTable();
+    }
+
+    // ===============================
+    // リセット (全スコア初期化)
+    // ===============================
     function resetGame() {
-      players.forEach(player => {
-        player.throws = [];
-        player.total = 0;
+      players.forEach(p => {
+        p.throws = [];
+        p.total = 0;
       });
       turnIndex = 0;
-      updateTable();
+      renderTable();
     }
 
-    // ================================
-    // テーブルの表示を更新
-    // ================================
-    function updateTable() {
-      const tbody = document.querySelector('#scoreTable tbody');
-      tbody.innerHTML = '';
+    // ===============================
+    // テーブル描画
+    // ===============================
+    function renderTable() {
+      const headRow = document.getElementById('tableHeadRow');
+      const body = document.getElementById('tableBody');
 
-      // ---- 1行目: 合計 ----
+      // ヘッダー行を再生成
+      headRow.innerHTML = '';
+
+      // 1列目: Throw #
+      const thThrow = document.createElement('th');
+      thThrow.textContent = 'Throw #';
+      headRow.appendChild(thThrow);
+
+      // プレイヤー列 (可変)
+      players.forEach(p => {
+        const th = document.createElement('th');
+        th.textContent = p.name;
+        headRow.appendChild(th);
+      });
+
+      // 本体をクリア
+      body.innerHTML = '';
+
+      // --- 1行目: 合計 ---
       const totalRow = document.createElement('tr');
+      // 1列目
       const totalLabel = document.createElement('td');
       totalLabel.textContent = '合計';
       totalRow.appendChild(totalLabel);
 
+      // 各プレイヤーの合計
       players.forEach(p => {
         const td = document.createElement('td');
         td.textContent = p.total;
@@ -179,42 +217,47 @@
         }
         totalRow.appendChild(td);
       });
+      body.appendChild(totalRow);
 
-      tbody.appendChild(totalRow);
+      // --- 投目を(最新→1投目)の順で表示 ---
+      // 最大の投数
+      let maxThrows = 0;
+      players.forEach(p => {
+        if (p.throws.length > maxThrows) {
+          maxThrows = p.throws.length;
+        }
+      });
 
-      // ---- 2行目以降: 5投目, 4投目, 3投目, 2投目, 1投目 ----
-      // 最新の投げを「5投目」として上に表示したい場合は、下記のように大きい投数からループ
-      for (let throwCount = MAX_THROWS; throwCount >= 1; throwCount--) {
+      // t= maxThrows downTo 1
+      for (let t = maxThrows; t >= 1; t--) {
         const row = document.createElement('tr');
 
-        // 先頭列: 「◯投目」
+        // 先頭セル: 「t投目」
         const throwLabel = document.createElement('td');
-        throwLabel.textContent = `${throwCount}投目`;
+        throwLabel.textContent = t + '投目';
         row.appendChild(throwLabel);
 
-        // 各プレイヤーのスコア表示
+        // 各プレイヤーのスコア
         players.forEach(p => {
           const td = document.createElement('td');
-          // 配列の古いほうが1投目, 新しいほうが最後
-          // 例: p.throws = [ 5, 9, 3 ] => 1投目=5, 2投目=9, 3投目=3
-          // throwCount が 1ならp.throws[0], 2ならp.throws[1], ...
-          // throwCount-1 がインデックス
-          const idx = throwCount - 1;
-          td.textContent = p.throws[idx] !== undefined ? p.throws[idx] : '-';
+          // p.throws[0] は1投目 → p.throws[t-1] が t投目
+          const idx = t - 1;
+          td.textContent = (p.throws[idx] !== undefined) ? p.throws[idx] : '-';
           row.appendChild(td);
         });
 
-        tbody.appendChild(row);
+        body.appendChild(row);
       }
     }
 
-    // ================================
-    // ページ読込時の初期化
-    // ================================
+    // ===============================
+    // 初期化
+    // ===============================
     window.onload = () => {
       createSkittles();
-      updateTable();  // 初期表示
+      renderTable();
 
+      document.getElementById('addPlayerButton').onclick = addPlayer;
       document.getElementById('resetButton').onclick = resetGame;
     };
   </script>
