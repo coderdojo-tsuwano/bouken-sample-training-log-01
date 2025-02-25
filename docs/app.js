@@ -1,126 +1,218 @@
-// IndexedDB 設定
-const DB_NAME = "molkkyDB";
-const STORE_NAME = "players";
-let db;
+// =======================
+// データ構造 & IndexedDB
+// =======================
+const DB_NAME = "molkkyDB_v2";
+const STORE_NAME = "scoreboardStore";
+let db = null;
 
-// 初期プレイヤー
-const players = [
-    { name: "プレイヤー1", score: 0 },
-    { name: "プレイヤー2", score: 0 }
-];
-
-// データベースを開く
-const openDB = () => {
-    const request = indexedDB.open(DB_NAME, 1);
-
-    request.onupgradeneeded = (event) => {
-        db = event.target.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-            db.createObjectStore(STORE_NAME, { keyPath: "name" });
-        }
-    };
-
-    request.onsuccess = (event) => {
-        db = event.target.result;
-        loadPlayers();
-    };
+// 初期スコアボード
+// ※ 好きなだけプレイヤーを増やすなら、この players に追加
+let scoreboard = {
+  players: [
+    { name: "プレイヤー1", total: 0, scores: [] },
+    { name: "プレイヤー2", total: 0, scores: [] },
+    { name: "プレイヤー3", total: 0, scores: [] },
+    { name: "プレイヤー4", total: 0, scores: [] },
+  ],
+  turnIndex: 0, // 何回目の投げか
 };
 
-// データを読み込む
-const loadPlayers = () => {
-    const transaction = db.transaction(STORE_NAME, "readonly");
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.getAll();
+// =======================
+// IndexedDBを開く
+// =======================
+function openDB() {
+  const request = indexedDB.open(DB_NAME, 1);
 
-    request.onsuccess = () => {
-        if (request.result.length > 0) {
-            updatePlayers(request.result);
-        } else {
-            savePlayers(players);
-        }
-    };
-};
-
-// プレイヤー情報を保存
-const savePlayers = (players) => {
-    const transaction = db.transaction(STORE_NAME, "readwrite");
-    const store = transaction.objectStore(STORE_NAME);
-    players.forEach(player => store.put(player));
-    transaction.oncomplete = () => updatePlayers(players);
-};
-
-// スコアを追加
-const addScore = (name, points) => {
-    const transaction = db.transaction(STORE_NAME, "readwrite");
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(name);
-
-    request.onsuccess = () => {
-        let player = request.result;
-        if (!player) return;
-
-        player.score += points;
-
-        // 50点超えたら25点にリセット
-        if (player.score > 50) {
-            player.score = 25;
-        }
-
-        store.put(player);
-        transaction.oncomplete = () => updatePlayersFromDB();
-    };
-};
-
-// プレイヤー表示を更新
-const updatePlayersFromDB = () => {
-    const transaction = db.transaction(STORE_NAME, "readonly");
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.getAll();
-
-    request.onsuccess = () => updatePlayers(request.result);
-};
-
-// プレイヤー情報を表示
-const updatePlayers = (players) => {
-    const playerContainer = document.getElementById("players");
-    const playerSelect = document.getElementById("playerSelect");
-
-    playerContainer.innerHTML = "";
-    playerSelect.innerHTML = "";
-
-    players.forEach(player => {
-        const div = document.createElement("div");
-        div.textContent = `${player.name}: ${player.score}点`;
-        if (player.score === 50) {
-            div.style.color = "green";
-            div.style.fontWeight = "bold";
-            alert(`${player.name} が勝ちました！ 🎉`);
-        }
-        playerContainer.appendChild(div);
-
-        const option = document.createElement("option");
-        option.value = player.name;
-        option.textContent = player.name;
-        playerSelect.appendChild(option);
-    });
-};
-
-// スコア追加処理
-document.getElementById("scoreForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const name = document.getElementById("playerSelect").value;
-    const points = Number(document.getElementById("scoreInput").value);
-    if (points > 0) {
-        addScore(name, points);
+  request.onupgradeneeded = (event) => {
+    db = event.target.result;
+    if (!db.objectStoreNames.contains(STORE_NAME)) {
+      db.createObjectStore(STORE_NAME, { keyPath: "id" });
     }
-    event.target.reset();
-});
+  };
 
-// ゲームリセット
-document.getElementById("resetButton").addEventListener("click", () => {
-    savePlayers(players.map(p => ({ name: p.name, score: 0 })));
-});
+  request.onsuccess = (event) => {
+    db = event.target.result;
+    loadScoreboard();
+  };
 
-// アプリ起動時にデータベースを開く
-window.onload = openDB;
+  request.onerror = (event) => {
+    console.error("DBエラー:", event.target.error);
+  };
+}
+
+// =======================
+// IndexedDBからデータ読み込み
+// =======================
+function loadScoreboard() {
+  const transaction = db.transaction(STORE_NAME, "readonly");
+  const store = transaction.objectStore(STORE_NAME);
+  const getReq = store.get("molkkyScoreboard");
+
+  getReq.onsuccess = () => {
+    if (getReq.result) {
+      scoreboard = getReq.result.data;
+    }
+    renderTable(); // 読み込み後に描画
+  };
+}
+
+// =======================
+// IndexedDBにデータを保存
+// =======================
+function saveScoreboard() {
+  if (!db) return;
+
+  const transaction = db.transaction(STORE_NAME, "readwrite");
+  const store = transaction.objectStore(STORE_NAME);
+  store.put({ id: "molkkyScoreboard", data: scoreboard });
+}
+
+// =======================
+// スキットルボタンを作る
+// =======================
+function createSkittleButtons() {
+  const skittlesDiv = document.getElementById("skittles");
+  skittlesDiv.innerHTML = "";
+
+  // スキットルは1～12
+  for (let i = 1; i <= 12; i++) {
+    const btn = document.createElement("button");
+    btn.className = "skittle";
+    btn.textContent = String(i);
+    btn.addEventListener("click", () => addScore(i));
+    skittlesDiv.appendChild(btn);
+  }
+}
+
+// =======================
+// スコアを追加する関数
+// =======================
+function addScore(points) {
+  const currentPlayerIndex = scoreboard.turnIndex % scoreboard.players.length;
+  const currentPlayer = scoreboard.players[currentPlayerIndex];
+
+  // 投げた点を記録
+  currentPlayer.scores.push(points);
+
+  // 合計加算
+  currentPlayer.total += points;
+
+  // 50点超え → 25点にリセット
+  if (currentPlayer.total > 50) {
+    currentPlayer.total = 25;
+  }
+
+  // 50点ちょうど → 勝利アラート
+  if (currentPlayer.total === 50) {
+    alert(`${currentPlayer.name} が勝ちました！ 🎉`);
+  }
+
+  // 次の投げへ
+  scoreboard.turnIndex++;
+
+  // DBに保存 & 画面更新
+  saveScoreboard();
+  renderTable();
+}
+
+// =======================
+// テーブル描画
+// =======================
+function renderTable() {
+  // ヘッダー行: 「Throw #」 + 各プレイヤー名
+  const thead = document.getElementById("scoreHead");
+  const tbody = document.getElementById("scoreBody");
+  thead.innerHTML = "";
+  tbody.innerHTML = "";
+
+  // (1) ヘッダー作成
+  //    例:  <th>Throw #</th> <th>プレイヤー1</th> <th>プレイヤー2</th> ...
+  const headerRow = document.createElement("tr");
+  const throwHeader = document.createElement("th");
+  throwHeader.textContent = "Throw #";
+  headerRow.appendChild(throwHeader);
+
+  scoreboard.players.forEach(player => {
+    const th = document.createElement("th");
+    th.textContent = player.name;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+
+  // (2) 何投目まであるか -> 最大の投げ回数を計算
+  let maxThrows = 0;
+  scoreboard.players.forEach(player => {
+    if (player.scores.length > maxThrows) {
+      maxThrows = player.scores.length;
+    }
+  });
+
+  // (3) 各投げごとに行を作成
+  for (let i = 0; i < maxThrows; i++) {
+    const row = document.createElement("tr");
+
+    // 先頭セル → "i+1投目"
+    const throwCell = document.createElement("td");
+    throwCell.textContent = `${i + 1}投目`;
+    row.appendChild(throwCell);
+
+    // 各プレイヤーのスコア or "-"
+    scoreboard.players.forEach(player => {
+      const td = document.createElement("td");
+      if (player.scores[i] !== undefined) {
+        td.textContent = String(player.scores[i]);
+      } else {
+        td.textContent = "-";
+      }
+      row.appendChild(td);
+    });
+
+    tbody.appendChild(row);
+  }
+
+  // (4) 合計行
+  const totalRow = document.createElement("tr");
+  const totalLabel = document.createElement("td");
+  totalLabel.textContent = "合計";
+  totalRow.appendChild(totalLabel);
+
+  scoreboard.players.forEach(player => {
+    const td = document.createElement("td");
+    td.textContent = String(player.total);
+    // もし50点なら強調するなど
+    if (player.total === 50) {
+      td.style.color = "green";
+      td.style.fontWeight = "bold";
+    }
+    totalRow.appendChild(td);
+  });
+  tbody.appendChild(totalRow);
+}
+
+// =======================
+// リセット処理
+// =======================
+function resetGame() {
+  // スコア履歴も含め全消去
+  scoreboard.players.forEach(p => {
+    p.total = 0;
+    p.scores = [];
+  });
+  scoreboard.turnIndex = 0;
+
+  saveScoreboard();
+  renderTable();
+}
+
+// =======================
+// アプリ起動時
+// =======================
+window.onload = () => {
+  openDB();               // IndexedDBを開く & データ読み込み
+  createSkittleButtons(); // スキットルボタン生成
+
+  // リセットボタン
+  document.getElementById("resetButton")
+    .addEventListener("click", resetGame);
+};
 

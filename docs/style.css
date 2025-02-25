@@ -1,51 +1,64 @@
+/* 全体のレイアウト */
 body {
-    font-family: Arial, sans-serif;
-    max-width: 500px;
-    margin: auto;
-    padding: 20px;
-    text-align: center;
+  font-family: Arial, sans-serif;
+  max-width: 600px;  /* 画面幅調整はお好みで */
+  margin: auto;
+  padding: 20px;
+  text-align: center;
 }
 
-h1, h2 {
-    color: #333;
+h1 {
+  margin-bottom: 20px;
 }
 
-#players div {
-    margin: 10px 0;
-    padding: 10px;
-    border: 1px solid #ddd;
-    background: #f9f9f9;
+/* スキットルボタン */
+#skittles {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr); /* 6列 x 2行 など好きに調整 */
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-form {
-    margin: 20px 0;
+.skittle {
+  width: 50px;
+  height: 50px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  background: #007bff;
+  color: white;
+  border-radius: 50%;
+}
+.skittle:hover {
+  background: #0056b3;
 }
 
-input, select, button {
-    margin: 5px;
-    padding: 10px;
-    font-size: 16px;
+/* テーブルのデザイン */
+#scoreboard {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
 }
 
-button {
-    cursor: pointer;
-    background: #007bff;
-    color: white;
-    border: none;
+#scoreboard th,
+#scoreboard td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  font-size: 14px;
 }
 
-button:hover {
-    background: #0056b3;
+/* リセットボタン */
+#resetButton {
+  margin: 10px;
+  padding: 10px 20px;
+  font-size: 16px;
+  background: #ff3333;
+  color: white;
+  border: none;
+  cursor: pointer;
 }
-
-ul {
-    list-style: none;
-    padding: 0;
-}
-
-li {
-    background: #eee;
-    margin: 5px 0;
-    padding: 10px;
+#resetButton:hover {
+  background: #cc0000;
 }
 

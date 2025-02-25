@@ -1,28 +1,223 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>モルック スコア記録</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>モルック スコア記録</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    /* スキットルボタン（1～12） */
+    #skittlesContainer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .skittle {
+      width: 50px;
+      height: 50px;
+      border: none;
+      border-radius: 50%;
+      background-color: #007bff;
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .skittle:hover {
+      background-color: #0056b3;
+    }
+
+    /* スコア表示用のテーブル */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f8f8f8;
+    }
+    /* リセットボタン */
+    #resetButton {
+      background-color: #ff3333;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #resetButton:hover {
+      background-color: #cc0000;
+    }
+  </style>
 </head>
 <body>
-    <h1>モルック スコア記録</h1>
-    
-    <div id="players"></div>
-    
-    <form id="scoreForm">
-        <select id="playerSelect"></select>
-        <input type="number" id="scoreInput" placeholder="倒したスキットルの点数" min="0" required>
-        <button type="submit">追加</button>
-    </form>
+  <h1>モルック スコア記録</h1>
 
-    <button id="resetButton">リセット</button>
+  <!-- スキットルボタン(1～12) -->
+  <div id="skittlesContainer"></div>
 
-    <h2>履歴</h2>
-    <ul id="logList"></ul>
+  <!-- スコア表 -->
+  <table id="scoreTable">
+    <thead>
+      <tr>
+        <th>Throw #</th>
+        <th>プレイヤー1</th>
+        <th>プレイヤー2</th>
+        <th>プレイヤー3</th>
+        <th>プレイヤー4</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- この下に合計・投目の行をJSで埋め込む -->
+    </tbody>
+  </table>
 
-    <script src="app.js"></script>
+  <!-- リセットボタン -->
+  <button id="resetButton">リセット</button>
+
+  <script>
+    // ================================
+    // データ構造
+    // ================================
+    // プレイヤーは4人固定
+    let players = [
+      { name: 'プレイヤー1', throws: [], total: 0 },
+      { name: 'プレイヤー2', throws: [], total: 0 },
+      { name: 'プレイヤー3', throws: [], total: 0 },
+      { name: 'プレイヤー4', throws: [], total: 0 }
+    ];
+
+    // 「現在の投げ手」を管理
+    let turnIndex = 0;
+
+    // 最大何投まで表示するか（ここでは5投まで）
+    const MAX_THROWS = 5;
+
+    // ================================
+    // スキットルボタンを生成
+    // ================================
+    function createSkittles() {
+      const container = document.getElementById('skittlesContainer');
+      container.innerHTML = '';
+      for (let i = 1; i <= 12; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'skittle';
+        btn.textContent = i;
+        btn.onclick = () => addScore(i);
+        container.appendChild(btn);
+      }
+    }
+
+    // ================================
+    // スコアを追加 → 次のプレイヤーへ
+    // ================================
+    function addScore(points) {
+      const currentPlayer = players[turnIndex % 4];
+      currentPlayer.throws.push(points);
+      currentPlayer.total += points;
+
+      // 50点超え → 25点リセット
+      if (currentPlayer.total > 50) {
+        currentPlayer.total = 25;
+      }
+      // 50点ピッタリ → 勝利
+      if (currentPlayer.total === 50) {
+        alert(`${currentPlayer.name} が勝ちました！`);
+      }
+
+      turnIndex++;
+      updateTable();
+    }
+
+    // ================================
+    // リセットボタン
+    // ================================
+    function resetGame() {
+      players.forEach(player => {
+        player.throws = [];
+        player.total = 0;
+      });
+      turnIndex = 0;
+      updateTable();
+    }
+
+    // ================================
+    // テーブルの表示を更新
+    // ================================
+    function updateTable() {
+      const tbody = document.querySelector('#scoreTable tbody');
+      tbody.innerHTML = '';
+
+      // ---- 1行目: 合計 ----
+      const totalRow = document.createElement('tr');
+      const totalLabel = document.createElement('td');
+      totalLabel.textContent = '合計';
+      totalRow.appendChild(totalLabel);
+
+      players.forEach(p => {
+        const td = document.createElement('td');
+        td.textContent = p.total;
+        // 50点なら強調
+        if (p.total === 50) {
+          td.style.color = 'green';
+          td.style.fontWeight = 'bold';
+        }
+        totalRow.appendChild(td);
+      });
+
+      tbody.appendChild(totalRow);
+
+      // ---- 2行目以降: 5投目, 4投目, 3投目, 2投目, 1投目 ----
+      // 最新の投げを「5投目」として上に表示したい場合は、下記のように大きい投数からループ
+      for (let throwCount = MAX_THROWS; throwCount >= 1; throwCount--) {
+        const row = document.createElement('tr');
+
+        // 先頭列: 「◯投目」
+        const throwLabel = document.createElement('td');
+        throwLabel.textContent = `${throwCount}投目`;
+        row.appendChild(throwLabel);
+
+        // 各プレイヤーのスコア表示
+        players.forEach(p => {
+          const td = document.createElement('td');
+          // 配列の古いほうが1投目, 新しいほうが最後
+          // 例: p.throws = [ 5, 9, 3 ] => 1投目=5, 2投目=9, 3投目=3
+          // throwCount が 1ならp.throws[0], 2ならp.throws[1], ...
+          // throwCount-1 がインデックス
+          const idx = throwCount - 1;
+          td.textContent = p.throws[idx] !== undefined ? p.throws[idx] : '-';
+          row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+      }
+    }
+
+    // ================================
+    // ページ読込時の初期化
+    // ================================
+    window.onload = () => {
+      createSkittles();
+      updateTable();  // 初期表示
+
+      document.getElementById('resetButton').onclick = resetGame;
+    };
+  </script>
 </body>
 </html>
 
