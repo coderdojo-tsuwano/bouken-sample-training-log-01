@@ -3,20 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>トレーニング記録</title>
+    <title>モルック スコア記録</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>トレーニング記録</h1>
-    <form id="logForm">
-        <input type="date" id="date" required>
-        <input type="text" id="exercise" placeholder="種目 (例: ベンチプレス)" required>
-        <input type="number" id="sets" placeholder="セット数" required>
-        <input type="number" id="reps" placeholder="回数" required>
-        <button type="submit">記録する</button>
+    <h1>モルック スコア記録</h1>
+    
+    <div id="players"></div>
+    
+    <form id="scoreForm">
+        <select id="playerSelect"></select>
+        <input type="number" id="scoreInput" placeholder="倒したスキットルの点数" min="0" required>
+        <button type="submit">追加</button>
     </form>
 
-    <h2>記録一覧</h2>
+    <button id="resetButton">リセット</button>
+
+    <h2>履歴</h2>
     <ul id="logList"></ul>
 
     <script src="app.js"></script>

@@ -1,7 +1,13 @@
 // IndexedDB 設定
-const DB_NAME = "trainingLogDB";
-const STORE_NAME = "logs";
+const DB_NAME = "molkkyDB";
+const STORE_NAME = "players";
 let db;
+
+// 初期プレイヤー
+const players = [
+    { name: "プレイヤー1", score: 0 },
+    { name: "プレイヤー2", score: 0 }
+];
 
 // データベースを開く
 const openDB = () => {
@@ -10,69 +16,109 @@ const openDB = () => {
     request.onupgradeneeded = (event) => {
         db = event.target.result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
-            db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+            db.createObjectStore(STORE_NAME, { keyPath: "name" });
         }
     };
 
     request.onsuccess = (event) => {
         db = event.target.result;
-        loadLogs();
+        loadPlayers();
     };
-
-    request.onerror = (event) => {
-        console.error("DBエラー", event.target.error);
-    };
-};
-
-// データを保存
-const saveLog = (log) => {
-    const transaction = db.transaction(STORE_NAME, "readwrite");
-    const store = transaction.objectStore(STORE_NAME);
-    store.add(log);
-    transaction.oncomplete = () => loadLogs();
 };
 
 // データを読み込む
-const loadLogs = () => {
+const loadPlayers = () => {
     const transaction = db.transaction(STORE_NAME, "readonly");
     const store = transaction.objectStore(STORE_NAME);
     const request = store.getAll();
 
     request.onsuccess = () => {
-        const logs = request.result;
-        displayLogs(logs);
+        if (request.result.length > 0) {
+            updatePlayers(request.result);
+        } else {
+            savePlayers(players);
+        }
     };
 };
 
-// データを表示
-const displayLogs = (logs) => {
-    const logList = document.getElementById("logList");
-    logList.innerHTML = "";
-    logs.forEach(log => {
-        const li = document.createElement("li");
-        li.innerHTML = `${log.date} - ${log.exercise} ${log.sets}セット × ${log.reps}回`;
-        logList.appendChild(li);
+// プレイヤー情報を保存
+const savePlayers = (players) => {
+    const transaction = db.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    players.forEach(player => store.put(player));
+    transaction.oncomplete = () => updatePlayers(players);
+};
+
+// スコアを追加
+const addScore = (name, points) => {
+    const transaction = db.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(name);
+
+    request.onsuccess = () => {
+        let player = request.result;
+        if (!player) return;
+
+        player.score += points;
+
+        // 50点超えたら25点にリセット
+        if (player.score > 50) {
+            player.score = 25;
+        }
+
+        store.put(player);
+        transaction.oncomplete = () => updatePlayersFromDB();
+    };
+};
+
+// プレイヤー表示を更新
+const updatePlayersFromDB = () => {
+    const transaction = db.transaction(STORE_NAME, "readonly");
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+
+    request.onsuccess = () => updatePlayers(request.result);
+};
+
+// プレイヤー情報を表示
+const updatePlayers = (players) => {
+    const playerContainer = document.getElementById("players");
+    const playerSelect = document.getElementById("playerSelect");
+
+    playerContainer.innerHTML = "";
+    playerSelect.innerHTML = "";
+
+    players.forEach(player => {
+        const div = document.createElement("div");
+        div.textContent = `${player.name}: ${player.score}点`;
+        if (player.score === 50) {
+            div.style.color = "green";
+            div.style.fontWeight = "bold";
+            alert(`${player.name} が勝ちました！ 🎉`);
+        }
+        playerContainer.appendChild(div);
+
+        const option = document.createElement("option");
+        option.value = player.name;
+        option.textContent = player.name;
+        playerSelect.appendChild(option);
     });
 };
 
-// フォーム処理
-document.getElementById("logForm").addEventListener("submit", (event) => {
+// スコア追加処理
+document.getElementById("scoreForm").addEventListener("submit", (event) => {
     event.preventDefault();
-
-    const date = document.getElementById("date").value;
-    const exercise = document.getElementById("exercise").value;
-    const sets = document.getElementById("sets").value;
-    const reps = document.getElementById("reps").value;
-
-    if (!date || !exercise || !sets || !reps) {
-        alert("すべての項目を入力してください");
-        return;
+    const name = document.getElementById("playerSelect").value;
+    const points = Number(document.getElementById("scoreInput").value);
+    if (points > 0) {
+        addScore(name, points);
     }
-
-    const log = { date, exercise, sets: Number(sets), reps: Number(reps) };
-    saveLog(log);
-
     event.target.reset();
+});
+
+// ゲームリセット
+document.getElementById("resetButton").addEventListener("click", () => {
+    savePlayers(players.map(p => ({ name: p.name, score: 0 })));
 });
 
 // アプリ起動時にデータベースを開く
